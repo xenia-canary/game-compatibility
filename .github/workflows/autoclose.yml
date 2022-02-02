@@ -76,7 +76,7 @@ jobs:
                 if [ '${{ github.event.action }}' = 'opened' ]; then
                   repository_issues_json=$(gh api graphql --jq '.data.repository[]' --paginate -f query='
                     query($endCursor: String) {
-                      repository(owner: "xenia-project", name: "game-compatibility") {
+                      repository(owner: "xenia-canary", name: "game-compatibility") {
                         issues(first:100, states:OPEN, after:$endCursor) {
                           nodes {
                             number
@@ -116,7 +116,7 @@ jobs:
             if [ "$GITHUB_EVENT_NAME" = 'issues' ]; then
               # Check Xenia version
               issue_body_trim 'Xenia version'
-              if [[ "$issue_body_trim" =~ https://github.com/xenia-project/xenia/commit/[0-9a-f]{5,40} ]]; then
+              if [[ "$issue_body_trim" =~ https://github.com/xenia-canary/xenia-canary/commit/[0-9a-f]{5,40} ]]; then
                 echo 'Version is valid.'
               else
                 compatibility_report_invalidate 'Version is invalid or missing.'
@@ -254,7 +254,7 @@ jobs:
                 issue_author="$pull_request_author"
               fi
               gh "${github_event_name_friendly,,}" close $issue_number
-              comment_close_body="@$issue_author your ${github_event_name_friendly,,} was automatically closed because it didn't follow the [issue/report guidelines](https://github.com/xenia-project/game-compatibility#reportissue-guidelines)."
+              comment_close_body="@$issue_author your ${github_event_name_friendly,,} was automatically closed because it didn't follow the [issue/report guidelines](https://github.com/xenia-canary/game-compatibility#reportissue-guidelines)."
               comment_close_body+=$'\n'"Here is what's wrong with your compatibility report:"
               comment_close_body+="$compatibility_report_invalid_reasons"
               if [ "$GITHUB_EVENT_NAME" = 'issues' ]; then
