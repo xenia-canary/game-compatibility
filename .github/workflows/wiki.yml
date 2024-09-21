@@ -1,0 +1,19 @@
+name: Wiki
+
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}.wiki
+      - name: Update wiki
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git remote add remote https://github.com/${{ github.repository }}.git
+          git fetch remote wiki
+          git reset --hard remote/wiki
+          git push -f
