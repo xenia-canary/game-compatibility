@@ -10,7 +10,7 @@ body:
 
         Issues specific to Xenia itself belong here: https://github.com/xenia-project/xenia
 
-        Compatibility reports for Xenia Canary belong here: https://github.com/xenia-canary/game-compatibility
+        Compatibility reports for Xenia master belong here: https://github.com/xenia-project/game-compatibility
         #
         The Title ID of a game can be found in xenia.log after running the game;
         Search (<kbd>Ctrl+F</kbd> in most text editors) for `XEX_HEADER_EXECUTION_INFO`.
@@ -23,9 +23,9 @@ body:
     attributes:
       label: Validation
       options:
-        - label: I've read the [FAQ](https://github.com/xenia-project/xenia/wiki/FAQ).
+        - label: I've read the [FAQ](https://github.com/xenia-canary/xenia-canary/wiki/FAQ).
           required: true
-        - label: The Xenia build used is from the master branch. (not MLBS/AlexVS/Canary/pull requests, etc)
+        - label: The Xenia build used is from a canary branch. (not UWP/MLBS/AlexVS/master/pull requests, etc)
           required: true
         - label: This issue isn't for help (tech support) with Xenia, or a game.
           required: true
@@ -42,10 +42,10 @@ body:
   - id: commit
     type: input
     attributes:
-      label: Xenia version
-      description: Xenia commit hash. You can get this pressing F2 in Xenia. Replace `...` with commit hash ie `509a1fa3866be4fb3ab9d413f600012688c89a7c`
-      placeholder: https://github.com/xenia-project/xenia/commit/.../
-      value: https://github.com/xenia-project/xenia/commit/.../
+      label: Xenia Canary version
+      description: Xenia Canary commit hash. You can get this pressing F2 in Xenia. Replace `...` with a commit hash, e.g. `509a1fa3866be4fb3ab9d413f600012688c89a7c`
+      placeholder: https://github.com/xenia-canary/xenia-canary/commit/.../
+      value: https://github.com/xenia-canary/xenia-canary/commit/.../
     validations:
       required: true
   - id: state
@@ -60,7 +60,7 @@ body:
     type: textarea
     attributes:
       label: Log
-      description: 'Put xenia.log into a zip and drag it here. It will be either in the same directory as the game, or the config: https://github.com/xenia-project/xenia/wiki/Options#how-to-use'
+      description: 'Put xenia.log into a zip and drag it here. It will be either in the same directory as the game, or the config: https://github.com/xenia-canary/xenia-canary/wiki/Options#how-to-use'
       placeholder: '![xenia.log.zip](url)'
     validations:
       required: true
@@ -77,7 +77,7 @@ body:
     attributes:
       label: Labels
       description: |
-        See https://github.com/xenia-project/game-compatibility/labels
+        See https://github.com/xenia-canary/game-compatibility/labels
         Labels you shouldn't use:
           * issue-invalid
           * issue-duplicate
