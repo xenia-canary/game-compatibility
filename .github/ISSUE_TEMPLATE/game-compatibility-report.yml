@@ -93,6 +93,7 @@ body:
           * issue-superseded
           * issue-cluttered
           * state-crash-OBSOLETE
+
         Each label must be separated by a comma.
       placeholder: state-intro, gpu-drawing-corrupt
     validations:
