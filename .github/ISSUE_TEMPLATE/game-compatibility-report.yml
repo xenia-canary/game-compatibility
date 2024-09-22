@@ -8,16 +8,17 @@ body:
       value: |
         **If you want help with Xenia or your game go to our Discord server's #help channel: https://discord.gg/Q9mxZf9**
 
-        Issues specific to Xenia itself belong here: https://github.com/xenia-project/xenia
+        Issues specific to Xenia Canary itself belong here: https://github.com/xenia-canary/xenia-canary
+        Issues specific to Xenia Master itself belong here: https://github.com/xenia-project/xenia
 
-        Compatibility reports for Xenia master belong here: https://github.com/xenia-project/game-compatibility
+        Compatibility reports for Xenia Master belong here: https://github.com/xenia-project/game-compatibility
         #
         The Title ID of a game can be found in xenia.log after running the game;
         Search (<kbd>Ctrl+F</kbd> in most text editors) for `XEX_HEADER_EXECUTION_INFO`.
 
         If the game doesn't have an English title you may add a translation along with the original title.
 
-        Please note original Xbox games are not supported; see [FAQ](https://github.com/xenia-project/xenia/wiki/FAQ#Can_Xenia_run_original_Xbox_games).
+        Original Xbox games are not supported; see [FAQ](https://github.com/xenia-canary/xenia-canary/wiki/FAQ#Can_Xenia_run_original_Xbox_games).
   - id: validation
     type: checkboxes
     attributes:
@@ -25,27 +26,35 @@ body:
       options:
         - label: I've read the [FAQ](https://github.com/xenia-canary/xenia-canary/wiki/FAQ).
           required: true
-        - label: The Xenia build used is from a canary branch. (not UWP/MLBS/AlexVS/master/pull requests, etc)
+        - label: The Xenia build used is from a Canary branch. (not UWP/MLBS/AlexVS/master/pull requests, etc)
           required: true
         - label: This issue isn't for help (tech support) with Xenia, or a game.
           required: true
         - label: I've checked if this game doesn't already have a compatibility report.
           required: true
+  - id: wiki-page
+    type: input
+    attributes:
+      label: Wiki page (optional)
+      description: Replace ... with the proper link to the wiki page if it exists.
+      placeholder: https://github.com/xenia-canary/game-compatibility/wiki/...
+      value: https://github.com/xenia-canary/game-compatibility/wiki/...
   - id: marketplace-link
     type: input
     attributes:
-      label: Xbox 360 Marketplace link
+      label: Xbox 360 Marketplace link (optional)
       description: |
-        ie: https://marketplace.xbox.com/en-us/Product/Halo-3/66acd000-77fe-1000-9115-d8024d5307e6
-        Can't find it? Try Google: `"game title" site:marketplace.xbox.com`
-        Leave blank if delisted, unlisted, or unreleased, and don't have a URL. The applicable label must be specified in the Labels section.
+        eg: https://marketplace.xbox.com/en-us/Product/Halo-3/66acd000-77fe-1000-9115-d8024d5307e6
+        Try Google: `"game title" site:marketplace.xbox.com`
+        Leave blank if delisted, unlisted, unreleased, or don't have a link.
   - id: commit
     type: input
     attributes:
       label: Xenia Canary version
-      description: Xenia Canary commit hash. You can get this pressing F2 in Xenia. Replace `...` with a commit hash, e.g. `509a1fa3866be4fb3ab9d413f600012688c89a7c`
+      description: |
+        Xenia Canary commit hash. You can get it pressing F2 in Xenia.
+        It should look something like this: https://github.com/xenia-canary/xenia-canary/commit/509a1fa3866be4fb3ab9d413f600012688c89a7c/
       placeholder: https://github.com/xenia-canary/xenia-canary/commit/.../
-      value: https://github.com/xenia-canary/xenia-canary/commit/.../
     validations:
       required: true
   - id: state
@@ -84,6 +93,7 @@ body:
           * issue-superseded
           * issue-cluttered
           * state-crash-OBSOLETE
+        Each label must be separated by a comma.
       placeholder: state-intro, gpu-drawing-corrupt
     validations:
       required: true
