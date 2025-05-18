@@ -32,6 +32,8 @@ body:
           required: true
         - label: I've checked if this game doesn't already have a compatibility report.
           required: true
+        - label: Main report is done on Windows with usage of D3D12 backend
+          required: true
   - id: wiki-page
     type: input
     attributes:
