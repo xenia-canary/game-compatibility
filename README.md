@@ -17,7 +17,7 @@ Compatibility Report template, or else your issue will be closed.
   * Non-game-specific Xenia issue(s).
   * Results not from [Xenia Canary](https://github.com/xenia-canary/xenia-canary/releases/download/experimental/xenia_canary.zip).
     * Results from Xenia master belong in its own [compatibility tracker](https://github.com/xenia-project/game-compatibility/issues).
-  * Xenia Manager Logs instead of logs directly from canary. 
+  * Xenia Manager Logs instead of logs directly from Xenia Canary. 
     * Xenia Manager log - Log-20260121, Xenia Canary log - xenia.log (If your not using Xenia Manager don't worry about this)
   * Tech Support:
     * `How do I do/fix X?`
