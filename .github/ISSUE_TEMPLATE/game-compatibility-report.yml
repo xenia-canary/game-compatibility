@@ -83,19 +83,24 @@ body:
       placeholder: '![Screenshot](url)'
     validations:
       required: true
-  - id: labels
-    type: input
+  - id: state-label
+    type: dropdown
     attributes:
-      label: Labels
+      label: State
       description: |
-        See https://github.com/xenia-canary/game-compatibility/labels
-        Labels you shouldn't use:
-          * issue-invalid
-          * issue-duplicate
-          * issue-superseded
-          * issue-cluttered
-
-        Each label must be separated by a comma.
-      placeholder: state-intro, gpu-drawing-corrupt
+        Select the state that best describes the game's current functionality.
+        See https://github.com/xenia-canary/game-compatibility/labels?q=state
+      options:
+        - Nothing
+        - Crash (Host)
+        - Crash (Guest)
+        - Crash (XNA)
+        - Hang
+        - Intro
+        - Title
+        - Load
+        - Menus
+        - Gameplay
+        - Playable
     validations:
       required: true
