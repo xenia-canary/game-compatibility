@@ -1,0 +1,67 @@
+name: Update Compatibility Data
+
+on:
+  schedule:
+    - cron: "0 */8 * * *" # Every 8 hours
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Generate Compatibility Data
+        run: python scripts/update_compatibility_data.py
+
+      - name: Verify data file exists
+        id: verify
+        run: |
+          if [ -f "compatibility_data.json" ]; then
+            echo "create_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "create_release=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Delete existing compatibility release and tag
+        if: steps.verify.outputs.create_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Find release with name "Xenia Canary Game Compatibility"
+          RELEASE_INFO=$(gh release list --repo ${{ github.repository }} --limit 100 --json name,tagName | jq -r '.[] | select(.name == "Xenia Canary Game Compatibility")')
+          if [ -n "$RELEASE_INFO" ] && [ "$RELEASE_INFO" != "null" ]; then
+            TAG_NAME=$(echo "$RELEASE_INFO" | jq -r .tagName)
+            echo "Deleting release with tag: $TAG_NAME"
+            gh release delete "$TAG_NAME" --repo ${{ github.repository }} --yes --cleanup-tag
+          else
+            echo "No existing compatibility release found."
+          fi
+
+      - name: Create new release and upload data
+        if: steps.verify.outputs.create_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="game-compatibility"
+          RELEASE_NAME="Xenia Canary Game Compatibility"
+          BODY="Compatibility data update ($(date +'%Y-%m-%d %H:%M:%S'))"
+
+          echo "Creating release: $RELEASE_NAME with tag: $TAG_NAME"
+          gh release create "$TAG_NAME" \
+            --repo ${{ github.repository }} \
+            --title "$RELEASE_NAME" \
+            --notes "$BODY" \
+            compatibility_data.json
