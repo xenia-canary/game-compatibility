@@ -85,6 +85,14 @@ STATE_MAPPINGS = {
     "state-playable": "Playable",
 }
 
+# Ignored issue labels
+IGNORED_LABELS = {
+    "issue-cluttered",
+    "issue-duplicate",
+    "issue-invalid",
+    "issue-superseded",
+}
+
 # Runtime data
 COMPATIBILITY_DATA = []
 
@@ -349,6 +357,10 @@ def main():
             continue
 
         label_data = parse_labels(issue.get("labels", []))
+        # If any ignored label is present, skip this issue
+        if any(lbl in IGNORED_LABELS for lbl in label_data["others"]):
+            logger.debug(f"Skipping issue #{issue_num} due to ignored label")
+            continue
         state = label_data["parsed"]
         processed_states[state] = processed_states.get(state, 0) + 1
 
