@@ -103,6 +103,7 @@ IGNORED_LABELS = {
 
 # Runtime data
 COMPATIBILITY_DATA = []
+RATE_LIMIT_EXHAUSTED = False
 
 
 # =========================
@@ -235,7 +236,9 @@ def fetch_issues():
         page_num += 1
         logger.info(f"Fetching page {page_num}: {url}")
 
+        last_attempt_rate_limited = False
         for attempt in range(MAX_RETRIES):
+            last_attempt_rate_limited = False
             try:
                 logger.debug(f"Attempt {attempt + 1}/{MAX_RETRIES} for page {page_num}")
                 response = requests.get(
@@ -261,6 +264,7 @@ def fetch_issues():
                         )
                         logger.warning(f"Rate limited. Sleeping {wait_time}s...")
                         time.sleep(wait_time)
+                        last_attempt_rate_limited = True
                         continue
 
                 response.raise_for_status()
@@ -280,6 +284,12 @@ def fetch_issues():
                     sleep_time = RETRY_BACKOFF_BASE * (attempt + 1)
                     logger.debug(f"Retrying in {sleep_time}s...")
                     time.sleep(sleep_time)
+        else:
+            if last_attempt_rate_limited:
+                global RATE_LIMIT_EXHAUSTED
+                RATE_LIMIT_EXHAUSTED = True
+                logger.error("Rate limit hit on all retries for this page.")
+                return all_data
 
         # Cursor pagination
         link_header = response.headers.get("Link", "")
@@ -338,11 +348,20 @@ def main():
             "No COMPATIBILITY_TOKEN set — rate limits will be low (60 req/hour)"
         )
 
+    global RATE_LIMIT_EXHAUSTED
+
     # Fetch issues
     logger.info("-" * 60)
     logger.info("Starting compatibility data update...")
     issues = fetch_issues()
     logger.info(f"Fetched {len(issues)} total issues from GitHub")
+
+    if RATE_LIMIT_EXHAUSTED:
+        logger.error(
+            "Rate limit was hit on all retry attempts — data may be incomplete. "
+            "Skipping save to prevent committing partial data."
+        )
+        return
 
     if not issues:
         logger.error("No issues fetched. Exiting.")
