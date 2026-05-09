@@ -85,6 +85,14 @@ STATE_MAPPINGS = {
     "state-playable": "Playable",
 }
 
+# Priority for state selection (lower = worse)
+STATE_PRIORITY = {
+    "Unplayable": 0,
+    "Loads": 1,
+    "Gameplay": 2,
+    "Playable": 3,
+}
+
 # Ignored issue labels
 IGNORED_LABELS = {
     "issue-cluttered",
@@ -166,11 +174,15 @@ def parse_labels(labels: list) -> Dict[str, Any]:
         "others": [...everything else...],
         "state_parsed": "Playable/Loads/etc"
     }
+
+    When multiple state- labels exist, selects the worst state based on priority:
+    Unplayable < Loads < Gameplay < Playable
     """
 
     state_parsed = "Unknown"
     state = []
     others = []
+    found_states = []
 
     logger.debug(f"Processing {len(labels)} labels")
 
@@ -181,13 +193,19 @@ def parse_labels(labels: list) -> Dict[str, Any]:
             state.append(name)
             logger.debug(f"Found state label: {name}")
 
-            # Only derive parsed state from known mappings
             if name in STATE_MAPPINGS:
-                state_parsed = STATE_MAPPINGS[name]
-                logger.debug(f"Mapped to compatibility state: {state_parsed}")
+                mapped_state = STATE_MAPPINGS[name]
+                found_states.append(mapped_state)
+                logger.debug(f"Mapped to compatibility state: {mapped_state}")
         else:
             others.append(name)
             logger.debug(f"Found other label: {name}")
+
+    if found_states:
+        state_parsed = min(
+            found_states, key=lambda s: STATE_PRIORITY.get(s, float("inf"))
+        )
+        logger.debug(f"Selected worst state from multiple: {state_parsed}")
 
     logger.debug(
         f"Final state: {state_parsed}, State labels: {len(state)}, Other labels: {len(others)}"
