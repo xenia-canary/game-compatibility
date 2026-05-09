@@ -67,14 +67,6 @@ body:
       placeholder: Crashes on startup.
     validations:
       required: true
-  - id: log
-    type: textarea
-    attributes:
-      label: Log
-      description: 'Put xenia.log into a zip and drag it here. It will be either in the same directory as the game, or the config, (DO NOT submit logs from Xenia Manager): https://github.com/xenia-canary/xenia-canary/wiki/Options#how-to-use'
-      placeholder: '![xenia.log.zip](url)'
-    validations:
-      required: true
   - id: screenshots
     type: textarea
     attributes:
@@ -119,3 +111,9 @@ body:
 
         Each label must be separated by a comma.
       placeholder: gpu-drawing-corrupt, apu-garbage
+  - id: log
+    type: textarea
+    attributes:
+      label: Log (if there are issues)
+      description: 'Put xenia.log into a zip and drag it here. It will be either in the same directory as the game, or the config, (DO NOT submit logs from Xenia Manager): https://github.com/xenia-canary/xenia-canary/wiki/Options#how-to-use'
+      placeholder: '![xenia.log.zip](url)'
