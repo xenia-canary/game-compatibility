@@ -11,6 +11,8 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
+    env:
+      TAG_NAME: "game-compatibility"
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -40,14 +42,27 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Find release with name "Xenia Canary Game Compatibility"
-          RELEASE_INFO=$(gh release list --repo ${{ github.repository }} --limit 100 --json name,tagName | jq -r '.[] | select(.name == "Xenia Canary Game Compatibility")')
-          if [ -n "$RELEASE_INFO" ] && [ "$RELEASE_INFO" != "null" ]; then
-            TAG_NAME=$(echo "$RELEASE_INFO" | jq -r .tagName)
-            echo "Deleting release with tag: $TAG_NAME"
-            gh release delete "$TAG_NAME" --repo ${{ github.repository }} --yes --cleanup-tag
+          RELEASES=$(gh release list \
+            --repo ${{ github.repository }} \
+            --limit 100 \
+            --json name,tagName \
+            | jq -r '.[]
+                | select(.tagName == "${{ env.TAG_NAME }}")
+                | .tagName')
+
+          if [ -z "$RELEASES" ]; then
+            echo "No matching releases found."
           else
-            echo "No existing compatibility release found."
+            while read -r TAG_NAME; do
+              [ -z "$TAG_NAME" ] && continue
+
+              echo "Deleting release with tag: $TAG_NAME"
+
+              gh release delete "$TAG_NAME" \
+                --repo ${{ github.repository }} \
+                --yes \
+                --cleanup-tag
+            done <<< "$RELEASES"
           fi
 
       - name: Create new release and upload data
@@ -55,7 +70,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG_NAME="game-compatibility"
+          TAG_NAME="${{ env.TAG_NAME }}"
           RELEASE_NAME="Xenia Canary Game Compatibility"
           BODY="Compatibility data update ($(date +'%Y-%m-%d %H:%M:%S'))"
 
