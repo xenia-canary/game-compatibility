@@ -1,0 +1,51 @@
+name: Fix Issue Titles
+
+on:
+  issues:
+    types: [opened, reopened]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (report only, no changes)"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  actions: read
+  issues: write
+  contents: read
+
+jobs:
+  fix-titles:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+      - run: pip install requests
+      - name: Wait for update_game_compatibility to finish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          while true; do
+            RUNS=$(gh run list \
+              --repo ${{ github.repository }} \
+              --workflow update_game_compatibility.yml \
+              --limit 1 \
+              --json status \
+              --jq '.[].status' 2>/dev/null)
+            if [ "$RUNS" = "in_progress" ] || [ "$RUNS" = "queued" ] || [ "$RUNS" = "pending" ]; then
+              echo "update_game_compatibility is $RUNS — waiting 30s..."
+              sleep 30
+            else
+              echo "No pending update_game_compatibility run. Proceeding."
+              break
+            fi
+          done
+      - name: Fix issue titles
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run || '' }}
+        run: python scripts/fix_issue_titles.py
