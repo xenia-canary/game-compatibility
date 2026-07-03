@@ -1,4 +1,4 @@
-name: Fix Issue Titles
+name: issuefilter
 
 on:
   issues:
@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 jobs:
-  fix-titles:
+  filter:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -44,8 +44,8 @@ jobs:
               break
             fi
           done
-      - name: Fix issue titles
+      - name: Run issuefilter
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DRY_RUN: ${{ inputs.dry_run || '' }}
-        run: python scripts/fix_issue_titles.py
+        run: python scripts/issuefilter.py
