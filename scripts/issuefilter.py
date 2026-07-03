@@ -62,10 +62,11 @@ TITLE_PATTERNS = [
 ]
 
 INVALID_LABEL = "issue-invalid"
+DUPLICATE_LABEL = "issue-duplicate"
 
 IGNORED_LABELS = {
     "issue-cluttered",
-    "issue-duplicate",
+    DUPLICATE_LABEL,
     INVALID_LABEL,
     "issue-superseded",
 }
@@ -409,10 +410,11 @@ def build_lookup_from_release(data: list) -> dict:
 
 
 def close_as_duplicate(owner: str, repo: str, number: int, original: dict) -> bool:
-    """Post a comment and close the issue. Returns True on success."""
+    """Post a comment, add label, and close the issue. Returns True on success."""
     comment = f"This game already has a compatibility report at xenia-canary#{original['issue']}."
     ok = post_comment(owner, repo, number, comment)
     if ok:
+        add_label(owner, repo, number, DUPLICATE_LABEL)
         ok = close_issue(owner, repo, number)
     return ok
 
