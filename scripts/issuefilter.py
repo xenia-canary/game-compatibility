@@ -61,10 +61,12 @@ TITLE_PATTERNS = [
     },
 ]
 
+INVALID_LABEL = "issue-invalid"
+
 IGNORED_LABELS = {
     "issue-cluttered",
     "issue-duplicate",
-    "issue-invalid",
+    INVALID_LABEL,
     "issue-superseded",
 }
 
@@ -350,6 +352,27 @@ def close_issue(owner: str, repo: str, number: int) -> bool:
         return False
 
 
+def add_label(owner: str, repo: str, number: int, label: str) -> bool:
+    """Add a label to an issue. Returns True on success."""
+    url = f"{API_BASE}/repos/{owner}/{repo}/issues/{number}/labels"
+    try:
+        logger.debug(f"Adding label '{label}' to #{number}")
+        response = requests.post(
+            url,
+            headers=get_headers(),
+            json={"labels": [label]},
+            timeout=TIMEOUT,
+        )
+        remaining = response.headers.get("X-RateLimit-Remaining", "unknown")
+        logger.debug(f"POST label #{number} — {response.status_code}, remaining: {remaining}")
+        response.raise_for_status()
+        logger.info(f"Labeled #{number}: '{label}'")
+        return True
+    except requests.RequestException as e:
+        logger.error(f"Failed to label #{number}: {e}")
+        return False
+
+
 # =========================
 # Duplicate detection
 # =========================
@@ -479,6 +502,11 @@ def main():
             logger.info(f"#{number}: DUPLICATE of #{lookup[hex_id]['issue']} ({lookup[hex_id]['title']})")
             continue
 
+        if not hex_id:
+            unfixable.append({"number": number, "old": title, "reason": "no hex ID"})
+            logger.info(f"#{number}: UNFIXABLE — no hex ID in title")
+            continue
+
         new_title = normalize_title(title)
         if new_title is None:
             unchanged += 1
@@ -493,9 +521,15 @@ def main():
                 f"{len(unfixable)} unfixable, {unchanged} correct, {skipped} skipped")
 
     if unfixable:
-        logger.warning("Unfixable (need manual review):")
+        logger.warning(f"Unfixable ({len(unfixable)}):")
         for f in unfixable:
-            logger.warning(f"  #{f['number']}: \"{f['old']}\" ({f.get('reason', 'no ID/name')})")
+            logger.warning(f"  #{f['number']}: \"{f['old']}\" ({f['reason']})")
+        if not dry_run:
+            logger.info("Commenting and labeling unfixable issues...")
+            for f in unfixable:
+                comment = f"Issue title does not contain a valid game ID. Please follow the `XXXXXXXX - Game Name` format."
+                post_comment(owner, repo, f["number"], comment)
+                add_label(owner, repo, f["number"], INVALID_LABEL)
 
     if duplicates:
         logger.info(f"Duplicates found: {len(duplicates)}")
