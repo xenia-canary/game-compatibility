@@ -622,6 +622,37 @@ def main():
         logger.info("-" * 60)
         logger.info("Issue edited — rechecking invalid label...")
         recheck_invalid_issues(owner, repo, dry_run, issues, lookup)
+
+        # Strip issue-invalid from in-memory labels for issues that now follow template
+        for issue in issues:
+            if follows_template(issue.get("title", "")):
+                issue["labels"] = [l for l in issue.get("labels", [])
+                                  if not (isinstance(l, dict) and l.get("name") == INVALID_LABEL)]
+
+        logger.info("-" * 60)
+        logger.info("Processing edited issue(s)...")
+
+        duplicates = []
+        fixed = []
+        unfixable = []
+        unchanged = 0
+        skipped = 0
+
+        for idx, issue in enumerate(issues, 1):
+            result = process_issue(issue, idx, len(issues), lookup)
+            action = result["action"]
+            if action == "skipped":
+                skipped += 1
+            elif action == "unchanged":
+                unchanged += 1
+            elif action == "unfixable":
+                unfixable.append(result)
+            elif action == "duplicate":
+                duplicates.append(result)
+            elif action == "fixed":
+                fixed.append(result)
+
+        report_results(owner, repo, dry_run, duplicates, fixed, unfixable, unchanged, skipped)
     else:
         logger.info("-" * 60)
         logger.info("Processing...")
