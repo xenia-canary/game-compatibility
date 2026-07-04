@@ -23,7 +23,6 @@ from typing import Optional
 import requests
 
 logging.basicConfig(
-    level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
@@ -79,9 +78,9 @@ IGNORED_LABELS = {
 
 def get_owner_repo() -> tuple:
     """Extract owner and repo name from GITHUB_REPOSITORY env var."""
-    full = os.getenv("GITHUB_REPOSITORY", "")
-    if full and "/" in full:
-        parts = full.split("/", 1)
+    repo_full = os.getenv("GITHUB_REPOSITORY", "")
+    if repo_full and "/" in repo_full:
+        parts = repo_full.split("/", 1)
         owner, repo = parts[0], parts[1]
         logger.debug(f"Resolved owner/repo: {owner}/{repo}")
         return owner, repo
@@ -253,14 +252,13 @@ def fetch_all_issues(owner: str, repo: str) -> list:
                         continue
                 response.raise_for_status()
                 data = response.json()
-                page_size = len(data) if isinstance(data, list) else 0
-                logger.debug(f"Page {page_num}: {page_size} items")
+                logger.debug(f"Page {page_num}: {len(data) if isinstance(data, list) else 0} items")
 
                 if not isinstance(data, list) or not data:
                     logger.info(f"Page {page_num}: empty — done")
                     return all_issues
 
-                logger.info(f"Page {page_num}: {page_size} issues")
+                logger.info(f"Page {page_num}: {len(data)} issues")
                 all_issues.extend(data)
                 break
 
@@ -420,6 +418,82 @@ def close_as_duplicate(owner: str, repo: str, number: int, original: dict) -> bo
 
 
 # =========================
+# Issue processing
+# =========================
+
+
+def process_issue(issue: dict, idx: int, total: int, lookup: dict) -> dict:
+    """Process a single issue, returning a result dict describing what to do."""
+    number = issue.get("number")
+    title = issue.get("title", "")
+    logger.debug(f"[{idx}/{total}] #{number}: \"{title}\"")
+
+    if should_skip(issue):
+        return {"action": "skipped"}
+
+    if not title.strip():
+        logger.debug(f"#{number}: empty title")
+        return {"action": "unfixable", "number": number, "old": title, "reason": "empty"}
+
+    hex_id = parse_title_simple(title)
+    if hex_id and hex_id in lookup and lookup[hex_id]["issue"] != number:
+        logger.info(f"#{number}: DUPLICATE of #{lookup[hex_id]['issue']} ({lookup[hex_id]['title']})")
+        return {"action": "duplicate", "number": number, "old": title, "original": lookup[hex_id]}
+
+    if not hex_id:
+        logger.info(f"#{number}: UNFIXABLE — no hex ID in title")
+        return {"action": "unfixable", "number": number, "old": title, "reason": "no hex ID"}
+
+    new_title = normalize_title(title)
+    if new_title is None:
+        return {"action": "unchanged"}
+
+    logger.info(f"#{number}: \"{title}\" → \"{new_title}\"")
+    return {"action": "fixed", "number": number, "old": title, "new": new_title}
+
+
+def report_results(owner: str, repo: str, dry_run: bool, duplicates: list, fixed: list, unfixable: list, unchanged: int, skipped: int):
+    """Log results and apply mutations (comments, labels, title updates)."""
+    logger.info("-" * 60)
+    logger.info(f"Results: {len(duplicates)} duplicates, {len(fixed)} to fix, "
+                f"{len(unfixable)} unfixable, {unchanged} correct, {skipped} skipped")
+
+    if unfixable:
+        logger.warning(f"Unfixable ({len(unfixable)}):")
+        for f in unfixable:
+            logger.warning(f"  #{f['number']}: \"{f['old']}\" ({f['reason']})")
+        if not dry_run:
+            logger.info("Commenting and labeling unfixable issues...")
+            for f in unfixable:
+                comment = "Issue title does not contain a valid game ID. Please follow the `XXXXXXXX - Game Name` format."
+                post_comment(owner, repo, f["number"], comment)
+                add_label(owner, repo, f["number"], INVALID_LABEL)
+
+    if duplicates:
+        logger.info(f"Duplicates found: {len(duplicates)}")
+        for d in duplicates:
+            logger.info(f"  #{d['number']}: \"{d['old']}\" → "
+                        f"duplicate of #{d['original']['issue']} ({d['original']['title']})")
+        if not dry_run:
+            logger.info("Closing duplicates...")
+            results = []
+            for d in duplicates:
+                ok = close_as_duplicate(owner, repo, d["number"], d["original"])
+                results.append((d["number"], ok))
+            success = sum(1 for _, s in results if s)
+            logger.info(f"Closed: {success}/{len(results)}")
+
+    if fixed and not dry_run:
+        logger.info(f"Applying {len(fixed)} title fix(es)...")
+        results = []
+        for f in fixed:
+            ok = update_title(owner, repo, f["number"], f["new"])
+            results.append((f["number"], ok))
+        success = sum(1 for _, s in results if s)
+        logger.info(f"Fixed: {success}/{len(results)}")
+
+
+# =========================
 # Entry point
 # =========================
 
@@ -484,77 +558,20 @@ def main():
     skipped = 0
 
     for idx, issue in enumerate(issues, 1):
-        number = issue.get("number")
-        title = issue.get("title", "")
-        logger.debug(f"[{idx}/{len(issues)}] #{number}: \"{title}\"")
-
-        if should_skip(issue):
+        result = process_issue(issue, idx, len(issues), lookup)
+        action = result["action"]
+        if action == "skipped":
             skipped += 1
-            continue
-
-        if not title.strip():
-            logger.debug(f"#{number}: empty title")
-            unfixable.append({"number": number, "old": title, "reason": "empty"})
-            continue
-
-        hex_id = parse_title_simple(title)
-        if hex_id and hex_id in lookup and lookup[hex_id]["issue"] != number:
-            dup = {"number": number, "old": title, "original": lookup[hex_id]}
-            duplicates.append(dup)
-            logger.info(f"#{number}: DUPLICATE of #{lookup[hex_id]['issue']} ({lookup[hex_id]['title']})")
-            continue
-
-        if not hex_id:
-            unfixable.append({"number": number, "old": title, "reason": "no hex ID"})
-            logger.info(f"#{number}: UNFIXABLE — no hex ID in title")
-            continue
-
-        new_title = normalize_title(title)
-        if new_title is None:
+        elif action == "unchanged":
             unchanged += 1
-            continue
+        elif action == "unfixable":
+            unfixable.append(result)
+        elif action == "duplicate":
+            duplicates.append(result)
+        elif action == "fixed":
+            fixed.append(result)
 
-        logger.info(f"#{number}: \"{title}\" → \"{new_title}\"")
-        fixed.append({"number": number, "old": title, "new": new_title})
-
-    # Report
-    logger.info("-" * 60)
-    logger.info(f"Results: {len(duplicates)} duplicates, {len(fixed)} to fix, "
-                f"{len(unfixable)} unfixable, {unchanged} correct, {skipped} skipped")
-
-    if unfixable:
-        logger.warning(f"Unfixable ({len(unfixable)}):")
-        for f in unfixable:
-            logger.warning(f"  #{f['number']}: \"{f['old']}\" ({f['reason']})")
-        if not dry_run:
-            logger.info("Commenting and labeling unfixable issues...")
-            for f in unfixable:
-                comment = f"Issue title does not contain a valid game ID. Please follow the `XXXXXXXX - Game Name` format."
-                post_comment(owner, repo, f["number"], comment)
-                add_label(owner, repo, f["number"], INVALID_LABEL)
-
-    if duplicates:
-        logger.info(f"Duplicates found: {len(duplicates)}")
-        for d in duplicates:
-            logger.info(f"  #{d['number']}: \"{d['old']}\" → "
-                        f"duplicate of #{d['original']['issue']} ({d['original']['title']})")
-        if not dry_run:
-            logger.info("Closing duplicates...")
-            results = []
-            for d in duplicates:
-                ok = close_as_duplicate(owner, repo, d["number"], d["original"])
-                results.append((d["number"], ok))
-            success = sum(1 for _, s in results if s)
-            logger.info(f"Closed: {success}/{len(results)}")
-
-    if fixed and not dry_run:
-        logger.info(f"Applying {len(fixed)} title fix(es)...")
-        results = []
-        for f in fixed:
-            ok = update_title(owner, repo, f["number"], f["new"])
-            results.append((f["number"], ok))
-        success = sum(1 for _, s in results if s)
-        logger.info(f"Fixed: {success}/{len(results)}")
+    report_results(owner, repo, dry_run, duplicates, fixed, unfixable, unchanged, skipped)
 
     elapsed = time.time() - start_time
     logger.info("-" * 60)
