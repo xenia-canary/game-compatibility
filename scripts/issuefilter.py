@@ -7,8 +7,8 @@ Detect duplicates and fix malformed titles on game-compatibility repos.
 - Dry-run mode reports without modifying
 
 Triggered via:
-  issues: [opened, reopened]  — checks just that one issue (always live)
-  workflow_dispatch           — batch checks all issues (dry-run toggle)
+  issues: [opened, reopened, edited]  — checks just that one issue (always live)
+  workflow_dispatch                  — batch checks all issues (dry-run toggle)
 
 Requires GITHUB_TOKEN with issues: write scope.
 """
@@ -372,6 +372,22 @@ def add_label(owner: str, repo: str, number: int, label: str) -> bool:
         return False
 
 
+def remove_label(owner: str, repo: str, number: int, label: str) -> bool:
+    """Remove a label from an issue. Returns True on success."""
+    url = f"{API_BASE}/repos/{owner}/{repo}/issues/{number}/labels/{label}"
+    try:
+        logger.debug(f"Removing label '{label}' from #{number}")
+        response = requests.delete(url, headers=get_headers(), timeout=TIMEOUT)
+        remaining = response.headers.get("X-RateLimit-Remaining", "unknown")
+        logger.debug(f"DELETE label #{number} — {response.status_code}, remaining: {remaining}")
+        response.raise_for_status()
+        logger.info(f"Removed label '{label}' from #{number}")
+        return True
+    except requests.RequestException as e:
+        logger.error(f"Failed to remove label from #{number}: {e}")
+        return False
+
+
 # =========================
 # Duplicate detection
 # =========================
@@ -493,13 +509,63 @@ def report_results(owner: str, repo: str, dry_run: bool, duplicates: list, fixed
         logger.info(f"Fixed: {success}/{len(results)}")
 
 
+def follows_template(title: str) -> Optional[str]:
+    """Check if title matches 'XXXXXXXX - Game Name' exactly. Returns hex ID or None."""
+    pat = TITLE_PATTERNS[0]
+    m = pat["regex"].match(title.strip())
+    if not m:
+        return None
+    id_ = m.group("id").upper()
+    name = m.group("name").strip()
+    expected = f"{id_}{EXPECTED_SEPARATOR}{name}"
+    if expected == title.strip():
+        return id_
+    return None
+
+
+def recheck_invalid_issues(owner: str, repo: str, dry_run: bool, issues: list, lookup: dict) -> int:
+    """Recheck issues with 'issue-invalid' label. Remove label if title now follows template."""
+    rechecked = [i for i in issues if any(
+        isinstance(l, dict) and l.get("name") == INVALID_LABEL
+        for l in i.get("labels", [])
+    )]
+    if not rechecked:
+        logger.info("No issue-invalid issues to recheck")
+        return 0
+
+    logger.info(f"Rechecking {len(rechecked)} issue(s) with '{INVALID_LABEL}' label...")
+    unstuck = 0
+
+    for issue in rechecked:
+        number = issue.get("number")
+        title = issue.get("title", "")
+        logger.debug(f"  #{number}: \"{title}\"")
+
+        if "pull_request" in issue:
+            logger.debug(f"    Skipped — PR")
+            continue
+
+        hex_id = follows_template(title)
+        if hex_id is None:
+            logger.info(f"  #{number}: still does not follow template — leaving label")
+            continue
+
+        logger.info(f"  #{number}: now follows template (ID={hex_id}) — removing 'issue-invalid'")
+        if not dry_run:
+            remove_label(owner, repo, number, INVALID_LABEL)
+        unstuck += 1
+
+    logger.info(f"Recheck complete: {unstuck}/{len(rechecked)} unstuck")
+    return unstuck
+
+
 # =========================
 # Entry point
 # =========================
 
 
 def main():
-    """Fetch issues, detect duplicates, normalize titles."""
+    """Fetch issues, detect duplicates, normalize titles, recheck invalid issues."""
     start_time = time.time()
     owner, repo = get_owner_repo()
     event_name = os.getenv("GITHUB_EVENT_NAME", "")
@@ -531,6 +597,7 @@ def main():
     logger.info("-" * 60)
     issues = []
 
+    payload = {}
     if event_name == "issues" and event_path:
         logger.info("Reading issue from event payload...")
         with open(event_path) as f:
@@ -548,30 +615,43 @@ def main():
 
     logger.info(f"Total: {len(issues)} issue(s)")
 
-    logger.info("-" * 60)
-    logger.info("Processing...")
+    # On 'edited' events, only recheck invalid issues — skip normal processing
+    action = payload.get("action", "")
 
-    duplicates = []
-    fixed = []
-    unfixable = []
-    unchanged = 0
-    skipped = 0
+    if event_name == "issues" and action == "edited":
+        logger.info("-" * 60)
+        logger.info("Issue edited — rechecking invalid label...")
+        recheck_invalid_issues(owner, repo, dry_run, issues, lookup)
+    else:
+        logger.info("-" * 60)
+        logger.info("Processing...")
 
-    for idx, issue in enumerate(issues, 1):
-        result = process_issue(issue, idx, len(issues), lookup)
-        action = result["action"]
-        if action == "skipped":
-            skipped += 1
-        elif action == "unchanged":
-            unchanged += 1
-        elif action == "unfixable":
-            unfixable.append(result)
-        elif action == "duplicate":
-            duplicates.append(result)
-        elif action == "fixed":
-            fixed.append(result)
+        duplicates = []
+        fixed = []
+        unfixable = []
+        unchanged = 0
+        skipped = 0
 
-    report_results(owner, repo, dry_run, duplicates, fixed, unfixable, unchanged, skipped)
+        for idx, issue in enumerate(issues, 1):
+            result = process_issue(issue, idx, len(issues), lookup)
+            action = result["action"]
+            if action == "skipped":
+                skipped += 1
+            elif action == "unchanged":
+                unchanged += 1
+            elif action == "unfixable":
+                unfixable.append(result)
+            elif action == "duplicate":
+                duplicates.append(result)
+            elif action == "fixed":
+                fixed.append(result)
+
+        report_results(owner, repo, dry_run, duplicates, fixed, unfixable, unchanged, skipped)
+
+        # After batch processing, also try to unstuck stale issue-invalid labels
+        if event_name != "issues":
+            logger.info("-" * 60)
+            recheck_invalid_issues(owner, repo, dry_run, issues, lookup)
 
     elapsed = time.time() - start_time
     logger.info("-" * 60)
