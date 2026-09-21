@@ -5,12 +5,13 @@ This allows the developers to find popular games quickly.
 If you would like to contribute to the compatibility testing effort - see the following section:
 
 ## Report/Issue Guidelines:
-If you would like to submit a **new** game-compatibility issue, please fill in the Game Compatibility Report template, or else your issue will be closed.
+If you would like to submit a **new** game-compatibility issue for a game that has no existing issue, please fill in the Game Compatibility Report template, or else your issue will be closed.
 
 If you would like to contribute to an **existing** game-compatibility issue also make sure to read and understand the rules below. Comments that don't abide by the rules may be deleted.
 
 ### What to post:
   * Detailed description of any issues encountered, steps to reproduce, xenia log and screenshots if applicable
+	* Screenshots should include the title bar (build and release date) when possible
   * Build used during testing
   * Your system specs
   * Xenia settings used during testing
@@ -18,6 +19,7 @@ If you would like to contribute to an **existing** game-compatibility issue also
 
 ### What NOT to post:
   * Issues that are empty, or don't edit/use the template whatsoever.
+  * Duplicate issues: this repository allows only one issue per game/TitleID. Duplicates will be deleted.
   * Non-English comments *except for posting untranslated comment alongside translated comment*.
   * Comments with bad spelling/grammar:
     * [Vulkan is a graphics API](https://www.khronos.org/vulkan/). *Vulcan* is a species from Star Trek. *Vulcun* is related to eSports. *Vulkin* is an Undertale character. **Learn the difference.**
